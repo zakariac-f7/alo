@@ -1,0 +1,417 @@
+<?php
+// ================= CONFIGURATION =================
+$API_KEY = "40331|qSDPYcKQYcn240A5uYtWebbHEyXuMy5k4XQAMMOS3c2ecd83"; // Your API Key
+
+// !!! PASTE YOUR PDF / EBOOK LINK HERE !!!
+$final_redirect_link = "https://your-link-here.com/file.pdf"; 
+
+// ================= BACKEND LOGIC =================
+function getOffers($apiKey){
+    $ip = $_SERVER['HTTP_CF_CONNECTING_IP'] ?? $_SERVER['REMOTE_ADDR'];
+    $ua = urlencode($_SERVER['HTTP_USER_AGENT']);
+    $url = "https://applocked.store/api/v2?get_offers=true&ip=$ip&user_agent=$ua";
+
+    $ch = curl_init();
+    curl_setopt_array($ch, [
+        CURLOPT_URL => $url,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_HTTPHEADER => ["Authorization: Bearer $apiKey"],
+        CURLOPT_TIMEOUT => 10,
+        CURLOPT_SSL_VERIFYPEER => false
+    ]);
+    $res = curl_exec($ch);
+    curl_close($ch);
+
+    $data = json_decode($res, true);
+    return ($data && isset($data['offers'])) ? array_slice($data['offers'], 0, 4) : [];
+}
+$offers = getOffers($API_KEY);
+?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Confidential Archive - Download Access</title>
+<!-- Confetti for the transition -->
+<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=Roboto:wght@300;400;700&family=Roboto+Mono:wght@500&display=swap');
+
+/* ================= THEME VARIABLES ================= */
+:root {
+    --accent: #d32f2f; 
+    --bg-modal: #111;
+    --border-color: #333;
+    --text-main: #fff;
+    --badge-bg: #ff6f00; /* Orange Badge Color */
+    --badge-text: #000;
+}
+
+body {
+    margin: 0; padding: 0;
+    font-family: 'Roboto', sans-serif;
+    background-color: #0d0d0d;
+    background-image: linear-gradient(rgba(0,0,0,0.85), rgba(0,0,0,0.95)), url('https://i.postimg.cc/MHS1TtCp/IMG-0453.jpg');
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+    color: var(--text-main);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.container {
+    text-align: center;
+    max-width: 800px;
+    width: 100%;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+/* ================= BADGE STYLE ================= */
+.top-badge {
+    background-color: var(--badge-bg);
+    color: var(--badge-text);
+    padding: 8px 20px;
+    font-weight: bold;
+    font-size: 0.95rem;
+    display: inline-block;
+    margin-bottom: 20px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    box-shadow: 0 0 15px rgba(255, 111, 0, 0.4);
+    border: 1px solid #ffca28;
+}
+
+h1.main-title {
+    font-family: 'Cinzel', serif;
+    color: var(--accent);
+    font-size: 3.5rem;
+    margin: 0;
+    line-height: 1.1;
+    text-shadow: 0 0 25px rgba(211,47,47,0.6);
+}
+
+h2.subtitle { font-size: 1.4rem; margin: 15px 0 25px; font-weight: 300; opacity: 0.9; }
+p.description { color: #ccc; max-width: 650px; margin: 0 auto 40px; line-height: 1.6; }
+
+.download-box {
+    background: rgba(20,20,20,0.95);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 30px;
+    max-width: 550px;
+    margin: auto;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+    backdrop-filter: blur(5px);
+}
+
+.preview-header {
+    text-align: left;
+    margin-bottom: 15px;
+    border-bottom: 1px solid #444;
+    padding-bottom: 10px;
+    font-size: 0.9rem;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.file-display {
+    display: flex; align-items: center; background: #080808; border: 1px solid #333;
+    padding: 15px; border-radius: 8px; margin-bottom: 25px;
+}
+.pdf-icon { font-size: 40px; margin-right: 15px; }
+.file-details { font-family: 'Roboto Mono', monospace; text-align: left; }
+.filename { font-weight: bold; display: block; margin-bottom: 4px; word-break: break-all; }
+.filesize { font-size: 0.8rem; color: #aaa; }
+
+.btn-download {
+    background: linear-gradient(135deg, #d32f2f, #b71c1c);
+    color: white; border: none; width: 100%; padding: 18px; font-size: 1.2rem;
+    font-weight: bold; cursor: pointer; border-radius: 6px;
+    text-transform: uppercase; letter-spacing: 1px;
+    transition: transform 0.2s;
+}
+.btn-download:hover { transform: translateY(-2px); box-shadow: 0 5px 20px rgba(211, 47, 47, 0.4); }
+
+/* ================= LOCKER MODAL ================= */
+.overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.95); backdrop-filter: blur(15px);
+    z-index: 9999; align-items: center; justify-content: center;
+    padding: 15px; animation: fadeIn 0.3s ease;
+}
+
+.modal {
+    background: var(--bg-modal); border: 1px solid var(--accent);
+    border-radius: 20px; padding: 25px; width: 100%; max-width: 420px;
+    text-align: center; position: relative;
+    box-shadow: 0 0 50px rgba(211, 47, 47, 0.15);
+}
+
+.modal h2.blink {
+    font-family: 'Cinzel', serif; color: var(--accent);
+    margin: 10px 0; font-size: 1.4rem;
+}
+
+.modal p.inst { font-size: 0.9rem; color: #aaa; margin: 20px 0; line-height: 1.4; }
+
+/* Progress Bar Styles (Restored) */
+.progress-w {
+    width: 100%; background: #111; height: 12px;
+    border-radius: 50px; margin: 20px 0; overflow: hidden;
+    border: 1px solid #333; position: relative;
+}
+.progress-b {
+    width: 0%; height: 100%; background: var(--accent);
+    box-shadow: 0 0 15px var(--accent); transition: width 0.1s linear;
+}
+.progress-stats {
+    display: flex; justify-content: space-between;
+    font-family: 'Roboto Mono', monospace; font-size: 0.75rem;
+    color: #fff; margin-bottom: 5px;
+}
+.security-badge { 
+    font-size: 0.8rem; color: #22c55e; margin-top: 15px; 
+    background: rgba(34, 197, 94, 0.1); padding: 8px; 
+    border-radius: 6px; display: none; 
+}
+
+/* Offer List Styles */
+.offers-container { margin-bottom: 20px; }
+.offer-row {
+    display: flex; align-items: center; background: #d32f2f;
+    border-radius: 50px; padding: 8px 12px; margin-bottom: 12px;
+    text-decoration: none; border: 1px solid #d32f2f;
+    transition: 0.2s; text-align: left;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+}
+.offer-row:hover { transform: scale(1.02); background: #b71c1c; }
+.offer-row img { 
+    width: 36px; height: 36px; 
+    border-radius: 50%; margin-right: 12px; 
+    object-fit: cover; 
+    border: 2px solid rgba(255,255,255,0.2);
+    display: block; 
+}
+.offer-info-f { flex: 1; text-align: left; }
+.offer-name-f { color: #fff; font-size: 0.95rem; font-weight: 700; display: block; line-height: 1.2; }
+
+/* Timer Section */
+.verification-box {
+    background: #080808; border: 1px dashed #444;
+    border-radius: 12px; padding: 15px; margin-top: 20px;
+    position: relative;
+}
+.v-status { font-size: 0.85rem; color: #aaa; margin-bottom: 10px; display: block; }
+.spinner {
+    display: inline-block; width: 20px; height: 20px;
+    border: 2px solid rgba(211,47,47,0.3); border-radius: 50%;
+    border-top-color: var(--accent); animation: spin 1s ease-in-out infinite; margin-bottom: 5px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.timer-count {
+    font-family: 'Roboto Mono', monospace;
+    font-size: 1.8rem;
+    color: var(--accent);
+    font-weight: bold;
+    display: block;
+    margin: 5px 0;
+}
+
+.v-btn-placeholder {
+    background: #333; color: #777; font-size: 0.8rem; padding: 8px;
+    border-radius: 4px; display: inline-block; margin-top: 5px; width: 100%;
+    box-sizing: border-box; font-weight: bold;
+}
+.v-btn-ready { background: #2e7d32; color: #fff; cursor: pointer; animation: pulse 2s infinite; }
+@keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(46, 125, 50, 0.4); }
+    70% { box-shadow: 0 0 0 10px rgba(46, 125, 50, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(46, 125, 50, 0); }
+}
+
+.hidden { display: none !important; }
+.blink { animation: blinker 1.5s linear infinite; }
+@keyframes blinker { 50% { opacity: 0.5; } }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+@media (max-width: 600px) {
+    h1.main-title { font-size: 2.2rem; }
+    h2.subtitle { font-size: 1.1rem; }
+    .container { padding: 15px; }
+}
+</style>
+
+<script>
+    const FINAL_LINK = "<?php echo $final_redirect_link; ?>";
+    const TIMER_MINUTES = 5; 
+    let timerInterval;
+
+    function startLockerProcess() {
+        // 1. Open Modal, Show Progress, Hide Offers
+        const overlay = document.getElementById('overlay');
+        const stepProgress = document.getElementById('step-progress');
+        const stepOffers = document.getElementById('step-offers');
+        
+        overlay.style.display = 'flex';
+        stepProgress.classList.remove('hidden');
+        stepOffers.classList.add('hidden');
+
+        // 2. Start Fake Console Animation
+        let fill = document.getElementById('p-fill');
+        let pct = document.getElementById('p-pct');
+        let status = document.getElementById('p-status');
+        let width = 0;
+        
+        let interval = setInterval(() => {
+            if(width >= 100) {
+                clearInterval(interval);
+                status.innerText = "Connection Established. Verification Required.";
+                document.getElementById('sec-check').style.display = 'block';
+                
+                // 3. Animation Done: Switch to Offers
+                setTimeout(() => {
+                    confetti({particleCount: 100, spread: 70, origin: {y: 0.6}, colors: ['#d32f2f', '#ffffff']});
+                    stepProgress.classList.add('hidden');
+                    stepOffers.classList.remove('hidden');
+                    
+                    // 4. Start the 5-Minute Countdown
+                    startTimer(TIMER_MINUTES * 60);
+
+                }, 1500);
+            } else {
+                width++;
+                fill.style.width = width + '%';
+                pct.innerText = width + '%';
+                
+                if(width < 30) status.innerText = "Connecting to Secure Server...";
+                else if(width < 60) status.innerText = "Decrypting File Headers...";
+                else if(width < 90) status.innerText = "Generating Download Link...";
+            }
+        }, 50); // Speed of the loading bar
+    }
+
+    function startTimer(duration) {
+        let timer = duration, minutes, seconds;
+        const display = document.getElementById('timer-display');
+        const statusText = document.getElementById('status-text');
+        const btn = document.getElementById('dl-btn-status');
+
+        timerInterval = setInterval(function () {
+            minutes = parseInt(timer / 60, 10);
+            seconds = parseInt(timer % 60, 10);
+            minutes = minutes < 10 ? "0" + minutes : minutes;
+            seconds = seconds < 10 ? "0" + seconds : seconds;
+            display.textContent = minutes + ":" + seconds;
+
+            if (--timer < 0) {
+                clearInterval(timerInterval);
+                display.textContent = "00:00";
+                statusText.innerText = "Verification Complete!";
+                statusText.style.color = "#2e7d32";
+                btn.classList.add('v-btn-ready');
+                btn.innerText = "DOWNLOAD READY - CLICK HERE";
+                
+                // Auto Redirect
+                window.location.href = FINAL_LINK;
+                btn.onclick = function() { window.location.href = FINAL_LINK; };
+            }
+        }, 1000);
+    }
+</script>
+</head>
+
+<body>
+
+<div class="container">
+    <div class="top-badge">TOP SECRET / NOFORN</div>
+
+    <h1 class="main-title">THE EPSTEIN FILES</h1>
+    <h2 class="subtitle">Unredacted. Uncensored. Complete.</h2>
+
+    <p class="description">
+        Access the full, searchable database of the recently declassified documents,
+        including flight logs, testimony, and the complete client list.
+    </p>
+
+    <div class="download-box">
+        <div class="preview-header">DOCUMENT PREVIEW</div>
+
+        <div class="file-display">
+            <div class="pdf-icon">📄</div>
+            <div class="file-details">
+                <span class="filename">EPSTEIN_FINAL_RELEASE_2026.pdf</span>
+                <span class="filesize">Size: 55.7 MB | Encrypted Access</span>
+            </div>
+        </div>
+        <button class="btn-download" onclick="startLockerProcess()">DOWNLOAD & UNLOCK</button>
+    </div>
+</div>
+
+<!-- LOCKER MODAL -->
+<div id="overlay" class="overlay">
+    <div class="modal">
+        
+        <!-- STEP 1: CONSOLE ANIMATION (Restored) -->
+        <div id="step-progress">
+            <h2 class="blink">ESTABLISHING CONNECTION</h2>
+            <p id="p-status">Initiating secure handshake...</p>
+            
+            <div class="progress-stats">
+                <span>ENCRYPTION: AES-256</span>
+                <span id="p-pct">0%</span>
+            </div>
+            
+            <div class="progress-w"><div id="p-fill" class="progress-b"></div></div>
+            
+            <div id="sec-check" class="security-badge">✅ Secure Link Generated</div>
+        </div>
+
+        <!-- STEP 2: OFFERS + TIMER (Hidden initially) -->
+        <div id="step-offers" class="hidden">
+            <!-- New Badge Style applied to Human Verification -->
+            <div class="top-badge" style="margin-top: -10px;">HUMAN VERIFICATION</div>
+            
+            <p class="inst">Complete one of the tasks below to verify you are not a bot. The download will start automatically once verified.</p>
+            
+            <div class="offers-container">
+                <?php if(!empty($offers)): ?>
+                    <?php foreach($offers as $o): ?>
+                    <a href="<?php echo $o['link']; ?>" target="_blank" class="offer-row">
+                        <img src="<?php echo $o['picture']; ?>" alt="offer">
+                        <div class="offer-info-f">
+                            <span class="offer-name-f"><?php echo $o['name_short']; ?></span>
+                        </div>
+                    </a>
+                    <?php endforeach; ?>
+                <?php else: ?>
+                    <div style="padding:15px; border:1px dashed #555; color:#888;">
+                        Loading verification tasks...
+                    </div>
+                <?php endif; ?>
+            </div>
+            
+            <div class="verification-box">
+                <span id="status-text" class="v-status">
+                    <div class="spinner"></div> Verification in progress
+                </span>
+                <span id="timer-display" class="timer-count">05:00</span>
+                <div id="dl-btn-status" class="v-btn-placeholder">
+                    WAITING FOR COMPLETION...
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+</body>
+</html>
